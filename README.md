@@ -1,28 +1,82 @@
-# Ремонтология — Laravel-версия
+# Ремонтология — сайт на Laravel
 
-Полноценный сайт на Laravel 10 (PHP 8.1) с базой данных, собственной админ-панелью
-и SEO-обвязкой. Вырос из статической версии в `../site/` — та осталась
-рабочей как самостоятельный автономный вариант (см. её README), эта же
-папка — «боевой» вариант с редактируемым через админку контентом.
+Сайт ремонтной компании на **Laravel 10 / PHP 8.1** с базой данных **SQLite**, собственной
+админ-панелью и SEO-обвязкой. Весь контент сайта редактируется через админку, без правки кода.
 
-## Быстрый старт
+- Репозиторий: https://github.com/mkzvcode/laravel_remontologiya
+- Локальный адрес (OSPanel): http://remontologiya.loc
+
+## Учётные записи
+
+| Роль | Логин | Пароль |
+|------|-------|--------|
+| Администратор | `admin` | `admin` |
+
+- Вход в админку: `/admin/login` (или просто `/admin` — перенаправит на вход).
+- Учётка создаётся сидером `database/seeders/AdminUserSeeder.php` (`php artisan migrate --seed`).
+- Обычных пользователей и регистрации на сайте нет — только вход администратора.
+- Сменить пароль можно через `php artisan tinker`:
+  `\App\Models\User::first()->update(['password' => \Hash::make('новый-пароль')]);`
+
+## База данных
+
+| Параметр | Значение |
+|----------|----------|
+| СУБД | SQLite |
+| Файл | `database/database.sqlite` (в репозиторий не входит, создаётся при установке) |
+| Логин / пароль | не нужны |
+
+Сессии, кэш и очередь тоже хранятся в базе (`SESSION_DRIVER=database`, `CACHE_DRIVER=database`).
+
+## Требования
+
+- PHP **8.1** (подходят и 8.2/8.3), расширения `pdo_sqlite`, `sqlite3`, `mbstring`, `openssl`, `fileinfo`
+- Composer 2
+- Сборка фронтенда (npm / Vite) **не нужна** — CSS и JS лежат готовыми в `public/assets`
+
+## Установка из репозитория
 
 ```bash
+git clone https://github.com/mkzvcode/laravel_remontologiya.git remontologiya.loc
+cd remontologiya.loc
 composer install
-cp .env.example .env      # уже настроен на SQLite, менять не обязательно
+copy .env.example .env
 php artisan key:generate
-touch database/database.sqlite
+type nul > database\database.sqlite
 php artisan migrate --seed
 php artisan storage:link
-php artisan serve
 ```
 
-Откроется на `http://localhost:8000`.
+(В Linux/macOS вместо `copy` — `cp`, вместо `type nul >` — `touch database/database.sqlite`.)
 
-**Вход в админку:** `http://localhost:8000/admin`
-— `admin@remontologiya.ru` / `remont2026` (сидируется `AdminUserSeeder`,
-смените пароль после первого входа — форма пока не сделана, быстрее всего
-через `php artisan tinker`: `\App\Models\User::first()->update(['password' => \Hash::make('новый-пароль')]);`).
+Сид заполняет весь контент сайта: страницы, услуги, цены, портфолио, отзывы, блог и т. д.
+
+## Запуск
+
+**В OSPanel:**
+
+1. Положить проект в `D:\OSPanel\domains\remontologiya.loc`.
+2. В настройках OSPanel выбрать модули: HTTP `Apache_2.4-PHP_8.0-8.1+Nginx_1.23`, PHP `PHP_8.1`.
+3. В `.env` указать `APP_URL=http://remontologiya.loc`.
+4. Перезапустить OSPanel — домен появится сам, корнем сайта OSPanel сделает папку `public`.
+5. Открыть http://remontologiya.loc
+
+**Без OSPanel:** `php artisan serve` → http://localhost:8000 (под этот адрес настроен `.env.example`).
+
+**Если сайт отдаёт ошибку 503** — это VPN/системный прокси перехватывает домены `.loc`.
+Выключите VPN или добавьте `*.loc` в исключения прокси (в настройках VPN-клиента или Windows).
+
+## Публичные страницы
+
+`/` главная · `/services` услуги · `/prices` цены · `/portfolio` портфолио · `/reviews` отзывы ·
+`/guarantee` гарантия · `/about` о компании · `/careers` вакансии · `/blog` блог и статьи ·
+`/sitemap.xml` · `/robots.txt`
+
+## История версии
+
+Проект изначально был написан на Laravel 13 (PHP 8.3) и переведён на **Laravel 10**, чтобы работать
+на PHP 8.1 в OSPanel. Код сайта при этом не менялся — заменён только каркас фреймворка
+(`Kernel`, провайдеры, `config`) и модель `User` переписана с атрибутов Laravel 13 на обычные свойства.
 
 ## Что редактируется через админку
 
@@ -100,11 +154,11 @@ public/
 ## Как это работает технически
 
 - **Без сборки фронтенда.** Ни Vite, ни npm-зависимостей для стилей/скриптов
-  не требуется — `public/assets/*` статические файлы, как и в `../site/`.
+  не требуется — `public/assets/*` готовые статические файлы.
 - **Калькулятор.** Настройки (`CalculatorSetting::current()->toJsSettings()`)
   сериализуются в `window.CALC_SETTINGS` прямо в layout; `app.js` их читает,
-  с фолбэком на исходные значения демо-сайта, если переменной нет
-  (так и на автономной статике, и если что-то пошло не так).
+  с фолбэком на исходные значения демо-сайта, если переменной нет.
+
 - **Секции страниц.** У каждой страницы — фиксированный набор именованных
   блоков (`pages.sections`, JSON), например у главной их 11: `promises`,
   `services`, `calc`, `pricing`, `works`, `process`, `guarantees`, `team`,
@@ -126,7 +180,7 @@ public/
 - Нет WYSIWYG-редактора для текста статей блога (обычный textarea,
   абзацы — через пустую строку).
 - Нет истории изменений / черновиков — сохранение сразу публикует.
-- Форма смены пароля в самой админке не сделана (см. «Быстрый старт»).
+- Форма смены пароля в самой админке не сделана (см. «Учётные записи»).
 - SQLite достаточно для демо/небольшого сайта; для реальной нагрузки
   стоит переключиться на MySQL/PostgreSQL — меняется только `.env`,
   код не завязан на конкретную СУБД.
